@@ -102,6 +102,39 @@ def test_chunks_jsonl_roundtrip(settings):
     assert first["details"]["chunk_profile"] == "book"
 
 
+def test_normalize_epub_makes_mimetype_first_and_stored():
+    """A non-conformant EPUB (mimetype compressed / not first) is repackaged so
+    filetype can detect it — the fix for Docling's 'format None' on EPUB streams."""
+    import io
+    import zipfile
+
+    import filetype
+
+    from distiller.converter import _normalize_epub
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("META-INF/container.xml", "<container/>")
+        z.writestr("OEBPS/c1.xhtml", "<html><body><p>hi</p></body></html>")
+        # mimetype present but compressed and last: filetype sees a generic zip
+        z.writestr("mimetype", "application/epub+zip", compress_type=zipfile.ZIP_DEFLATED)
+    bad = buf.getvalue()
+    assert filetype.guess_mime(bad) == "application/zip"
+
+    fixed = _normalize_epub(bad)
+    assert filetype.guess_mime(fixed) == "application/epub+zip"
+    with zipfile.ZipFile(io.BytesIO(fixed)) as z:
+        first = z.infolist()[0]
+        assert first.filename == "mimetype"
+        assert first.compress_type == zipfile.ZIP_STORED
+
+
+def test_normalize_epub_passes_through_non_epub():
+    from distiller.converter import _normalize_epub
+
+    assert _normalize_epub(b"not a zip at all") == b"not a zip at all"
+
+
 def test_write_outputs(settings, tmp_path):
     result = pipeline.process_document("handbook.pdf", b"x", settings)
     written = exporter.write_outputs(result, tmp_path)

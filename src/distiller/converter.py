@@ -15,6 +15,7 @@ Two paths:
 
 from __future__ import annotations
 
+import zipfile
 from io import BytesIO
 
 from .config import ExtractionEngine, Settings
@@ -67,6 +68,38 @@ def media_type_for(filename: str) -> str:
 
 def _suffix(filename: str) -> str:
     return ("." + filename.rsplit(".", 1)[-1].lower()) if "." in filename else ""
+
+
+def _normalize_epub(data: bytes) -> bytes:
+    """Repackage an EPUB so its ``mimetype`` entry is first and stored uncompressed.
+
+    Docling detects an EPUB stream only through the ``filetype`` library, which
+    recognizes the format only when the archive begins with an uncompressed
+    ``mimetype`` member equal to ``application/epub+zip`` — the EPUB spec's rule.
+    Many real EPUBs violate it (the member is compressed or not first), and
+    Docling's generic-zip fallback special-cases Office/ODF but not EPUB, so the
+    file is misread as ``application/zip`` and no format is chosen. Rewriting the
+    archive fixes detection without altering any content. A non-zip or non-EPUB
+    input is returned unchanged.
+    """
+    try:
+        with zipfile.ZipFile(BytesIO(data)) as zin:
+            names = zin.namelist()
+            if "mimetype" not in names:
+                return data
+            mimetype = zin.read("mimetype").strip()
+            if not mimetype.startswith(b"application/epub+zip"):
+                return data
+            out = BytesIO()
+            with zipfile.ZipFile(out, "w") as zout:
+                zout.writestr("mimetype", b"application/epub+zip", compress_type=zipfile.ZIP_STORED)
+                for item in zin.infolist():
+                    if item.filename == "mimetype":
+                        continue
+                    zout.writestr(item, zin.read(item.filename), compress_type=zipfile.ZIP_DEFLATED)
+            return out.getvalue()
+    except zipfile.BadZipFile:
+        return data
 
 
 def _build_local_converter(do_ocr: bool):
@@ -166,6 +199,11 @@ def convert_to_markdown(
         ConverterError: on an unusable file or a VLM configuration/runtime error.
     """
     from docling.datamodel.base_models import DocumentStream
+
+    # Docling's stream-based EPUB detection is brittle (see _normalize_epub);
+    # repackage so the format is recognized.
+    if _suffix(filename) == ".epub":
+        data = _normalize_epub(data)
 
     use_vlm = (
         settings.extraction_engine is ExtractionEngine.VLM

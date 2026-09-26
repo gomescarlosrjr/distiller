@@ -145,7 +145,7 @@ if uploaded and st.button("Convert", type="primary"):
                             "preview": [c.content[:160] for c in result.chunks],
                         }
                     )
-                    st.dataframe(df, use_container_width=True, hide_index=True)
+                    st.dataframe(df, width="stretch", hide_index=True)
                 else:
                     st.info("No chunks produced.")
 

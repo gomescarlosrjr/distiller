@@ -71,9 +71,11 @@ def test_chunk_book_respects_cap():
 
 
 def test_chunk_curated_extracts_legal_refs():
-    md = "## Capítulo V\n\n### Art. 37\n\nO servidor deve observar a legalidade."
+    # The "Capítulo"/"Art." tokens are Portuguese by necessity: the `curated`
+    # profile's legal-reference parser targets Brazilian legal documents.
+    md = "## Capítulo V\n\n### Art. 37\n\nThe public official must observe the principle of legality."
     chunks = chunker.chunk_curated(md, max_chunk_size=2000)
-    body = [c for c in chunks if "servidor" in c["content"]]
+    body = [c for c in chunks if "legality" in c["content"]]
     assert body
     meta = body[0]["metadata"]
     assert meta.get("article") == "Art. 37"

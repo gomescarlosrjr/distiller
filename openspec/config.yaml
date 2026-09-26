@@ -1,0 +1,52 @@
+schema: spec-driven
+
+# Project context — shown to AI when creating artifacts in this store.
+context: |
+  distiller is a personal document-ingestion service under ~/Developer/myservices,
+  owned by Carlos Gomes. It converts documents (PDF, EPUB, DOCX, PPTX, XLSX, HTML,
+  images, …) to Markdown via Docling and splits them into retrieval-ready chunks,
+  exporting a PG-Vector-ready chunks.jsonl. The goal is a personal pipeline for
+  building a private PG Vector knowledge base.
+
+  Stack: Python 3.12, uv, Streamlit UI + a `distiller` CLI, Docling (local library,
+  optional remote VLM extraction), pydantic-settings. Tests use pytest and run
+  offline (the converter is stubbed).
+
+  Lineage: the chunker (src/distiller/chunker.py) and the ingest flow are vendored
+  and adapted from terpafy-ai/courier (src/common/text_chunker.py,
+  scripts/ingest_knowledge_base.py). courier runs Docling as a remote docling-serve
+  microservice; distiller runs it as a local library instead. distiller is NOT a
+  terpafy-ai repo and keeps its own specs here rather than in the axiom store.
+
+  Non-negotiables every artifact must respect:
+  - Package manager is uv for this Python project (pnpm is only for JS/TS repos).
+  - TypeScript rules do not apply; Python is typed, no docstrings/TODO unless asked.
+  - Conventional Commits (type(scope): description); feature branches
+    (type/short-description); never push to main or dev; branch + PR.
+  - Extraction quality (document → markdown) is Docling's job, tuned with OCR and an
+    optional VLM. Embeddings (text → vectors) are a separate, deferred concern:
+    Groq and Anthropic have NO embeddings API — a later PG Vector phase uses Voyage
+    or OpenAI. A Groq/Anthropic token in this project is for VLM extraction only.
+  - The chunker never drops content; index/TOC filtering is the pipeline's explicit,
+    reported decision.
+
+# Per-artifact rules.
+rules:
+  proposal:
+    - Open with the user-visible problem, in the words the stakeholder used, before any solution.
+    - Always include explicit "In scope" and "Out of scope" sections and a "Non-goals" list.
+    - Cite evidence by concrete artifact: commit SHA, file path, or test name (there are no PRs while the repo is local).
+  specs:
+    - Requirements use SHALL/MUST and are testable; every requirement has at least one WHEN/THEN scenario.
+    - Reference concrete artifacts by path (e.g. src/distiller/converter.py) and by name (function, setting, field) rather than restating values, unless the value itself is the requirement.
+    - Distinguish what is observed in the shipped code from what is proposed; never spec behaviour that has not been verified.
+  design:
+    - Record every decision with the alternatives rejected and the reason; decisions came from the planning interview and must remain traceable to it.
+  tasks:
+    - Each task cites the evidence that closes it (commit SHA, file path, test). Retro-documented changes tick every task.
+
+# Per-operation guidance.
+operations:
+  archive:
+    guidance:
+      - Before archiving, confirm every task cites evidence and summarize which capability each delta folded into.
